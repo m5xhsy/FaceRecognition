@@ -1,5 +1,6 @@
 import os
 
+from error import DataSetError
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from torchvision.transforms import transforms
@@ -58,15 +59,14 @@ def get_dataloader(data_dir, mode, batch_size, num_workers=1):
     return dataloader
 
 
-class Err(Exception):
-    pass
+
 
 def get_num_classes(data_dir):
     num = 0
     for item in os.listdir(data_dir):
         path = os.path.join(data_dir,item)
         if num != 0 and num != len(os.listdir(path)):
-            raise Err("数据集不匹配")
+            raise DetaSetError("Data sets do not match")
         else:
             num = len(os.listdir(path))
     return num

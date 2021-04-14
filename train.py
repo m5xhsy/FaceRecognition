@@ -19,6 +19,7 @@ from torchnet import meter
 
 from inception_resnet_v2 import InceptionResnetV2
 from utils import get_num_classes, get_dataloader
+from error import TestModelError
 
 
 def net_training(net, num_classes):
@@ -105,13 +106,12 @@ def net_training(net, num_classes):
 
         out_list.append("Time for each epoch:{:.2f} seconds\n".format(time.time() - start_time))
         if args.log:
-            with open(args.log_file,"a",encoding="utf8") as f:
+            with open(args.log_file, "a", encoding="utf8") as f:
                 for item in out_list:
-                    f.write(item+"\n")
+                    f.write(item + "\n")
                 f.write("\n")
         else:
             print(out_list[-1])
-            
 
         net.train()
 
@@ -194,16 +194,26 @@ def start():
     num_classes = get_num_classes(args.data_dir)
 
     # net = InceptionResnetV1(classify=True, num_classes=num_classes,dropout_prob=args.dropout_prob).train().to(DEVICE)
+
     if os.path.isfile(args.model_path):
         net = torch.load(args.model_path)
     else:
-        net = InceptionResnetV2(classify=True, num_classes=num_classes, dropout_prob=args.dropout_prob).train().to(DEVICE)
+        net = InceptionResnetV2(classify=True, num_classes=num_classes, dropout_prob=args.dropout_prob).train().to(
+            DEVICE)
 
     if torch.cuda.device_count() > 1:
         net = nn.DataParallel(net)
 
-    net_training(net, num_classes)
-    test(num_classes)
+    if not args.only_test:
+        # 进行训练和测试
+        net_training(net, num_classes)
+        test(num_classes)
+    elif args.only_test and not os.path.isfile(args.model_path):
+        # 只测试且但是没有模型
+        assert TestModelError("The model to test is not set")
+    else:
+        # 只进行测试
+        test(num_classes)
 
 
 if __name__ == "__main__":
@@ -215,14 +225,16 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=64, help="Number of trainings per batch. (default 64)")
     parser.add_argument("--data-dir", type=str, default="./data", help="Training data path. (default ./data)")
     parser.add_argument("--learning-rate", type=float, default=0.1, help="Learning rate. (default 0.1)")
-    parser.add_argument("--decay-rate", type=float, default=0.1, help="Decay rate. (default 0.1)")
+    # parser.add_argument("--decay-rate", type=float, default=0.1, help="Decay rate. (default 0.1)")
     parser.add_argument("--dropout-prob", type=float, default=0.8, help="Dropout. (default 0.8)")
     parser.add_argument("--print-interval", type=int, default=100, help="Print interval. (default 100)")
     parser.add_argument("--weight-decay", type=float, default=1e-5, help="L2 weight decay. (default 1e-5)")
-    parser.add_argument("--decay-interval", type=int, default=20, help="Lr_scheduler decay interval. (default 20)")
+    # parser.add_argument("--decay-interval", type=int, default=20, help="Lr_scheduler decay interval. (default 20)")
     parser.add_argument("--log", action='store_true', help="The output log. (default no output)")
-    parser.add_argument("--log-file", type=str,default="./output.log", help="The output log file. (default './output.log')")
-    parser.add_argument("--model-path",type=str,help="Load model")
+    parser.add_argument("--log-file", type=str, default="./output.log",
+                        help="The output log file. (default './output.log')")
+    parser.add_argument("--model-path", type=str, help="Load model or Test model")
+    parser.add_argument("--only-test", action="store_true", help="Test only")
     args = parser.parse_args()
 
     start()
